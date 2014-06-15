@@ -1,6 +1,7 @@
 //ZLFF 2014
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,7 +22,7 @@ void startMem(int size){
 	drive = (header *)mem;
 	drive->version = 0;
 	drive->totalspace = size;
-	drive->freespace = size;
+	drive->freespace = size - sizeof(header);
 	drive->filecount = 0;
 	drive->files = (filereference*)(((char *)drive) + sizeof(header));// points immediately after the header
 }
@@ -82,14 +83,13 @@ void deleteFile(const char *path){
 	}
 }
 
-int addFile(char * name,int size, char *content){
+int addFile(char * name,int size, byte *content){
 	int size_in_disk = size + strlen(name) + 1;
 	if(size_in_disk > drive->freespace)
 		return -ENOSPC;
 
 	filereference newref;
 	newref.type = REGULAR_FILE; 
-	//strcpy((char *)&(name[0]), &(newref.name[0])); 
 	strncpy(&(newref.name[0]),name,FILENAME_MAX_LENGTH); 
 	newref.name[FILENAME_MAX_LENGTH] = (char)0;
 	newref.size = size;
@@ -100,13 +100,15 @@ int addFile(char * name,int size, char *content){
 		unsigned char *ptr = mem + newref.data_offset;
 		memcpy(ptr,content,size);
 		drive->files[0] = newref;
+		drive->freespace -= size;
 	}else{// address of the last (or first in memory) file reference
 		int last_address = drive->files[drive->filecount-1].data_offset; 
 		drive->filecount++;
-		newref.data_offset = (drive->totalspace - 1 - last_address);
+		newref.data_offset = (last_address - size);
 		unsigned char *ptr = mem + newref.data_offset;
 		memcpy(ptr,content,size);
 		drive->files[drive->filecount-1] = newref;
+		drive->freespace -= size;
 	}
 
 	return 0;	
@@ -174,8 +176,10 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
 			filereference *ref = drive->files + cnt;
 			if(strcmp(path,ref->name) == 0){// found match
 				printf("found match, type: %d\n", ref->type);
+				stbuf->st_uid = getuid();
+				stbuf->st_gid = getgid();
 				if(ref->type == REGULAR_FILE){
-					stbuf->st_mode = S_IFREG | 0444;
+					stbuf->st_mode = S_IFREG | 0644;
 					stbuf->st_nlink = 1;
 					stbuf->st_size = ref->size;
 					printf("size: %d\n", (int)stbuf->st_size);
@@ -193,8 +197,6 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
 		res = -ENOENT;
 	}
 	
-
-
 	return res;
 }
 
@@ -250,12 +252,12 @@ int pngdrive_create(const char *path, mode_t mode, struct fuse_file_info *info){
 }
 
 int pngdrive_write (const char *path, const char *data, size_t size, off_t offset, struct fuse_file_info *info){
-	printf("writing '%s' to %s\n", data,path);
+	printf("writing %d bytes to %s\n", (int)size,path);
 	filereference *ref = getReferenceByPath((char*)path);
-	filereference refval = *ref;
 	if(ref == NULL){
 		return -ENOENT;
 	}
+	filereference refval = *ref;
 	
 	int totalsize = refval.size;
 	if(totalsize < size + offset) totalsize = size + offset;
@@ -266,9 +268,11 @@ int pngdrive_write (const char *path, const char *data, size_t size, off_t offse
 	memcpy(updated_file_data+offset, data, size);
 
 	deleteFile(path);
-	addFile((char *)path,totalsize,(char *)updated_file_data);
+	int err = addFile((char *)path,totalsize,(byte *)updated_file_data);
 
 	free(updated_file_data);	
+	if(err < 0) 
+		return err;
 	
 	return size;
 }
@@ -313,6 +317,39 @@ static void pngdrive_destroy(void *v){
 	printf("exiting....\n");
 }
 
+static int pngdrive_rename (const char *srcpath, const char *destpath){
+	printf("renaming %s to %s\n",srcpath,destpath);
+	filereference *dest = getReferenceByPath((char *)destpath);
+	filereference *src = getReferenceByPath((char *)srcpath);
+
+	if(src == NULL){
+		return -ENOENT;	// no such file or directory
+	}
+
+	byte *data = (byte*)malloc(src->size);
+	unsigned char *ptr = mem + src->data_offset;
+	memcpy(data, ptr,src->size);
+
+	if(dest != NULL){
+			deleteFile(destpath);
+	}	
+	deleteFile(srcpath);
+	addFile((char*)destpath,src->size,data);	
+	free(data);
+	return 0;
+}
+
+static int pngdrive_unlink (const char *path){
+	filereference *ref = getReferenceByPath((char *)path);
+	if(ref == NULL){
+		return -ENOENT;	// no such file or directory
+	}
+
+	printf("Unlinking file:%s\n",path);
+	deleteFile((char *) path);
+	return 0;
+}
+
 static struct fuse_operations pngdrive_oper = {
 	.getattr	= pngdrive_getattr,
 	.readdir	= pngdrive_readdir,
@@ -321,10 +358,13 @@ static struct fuse_operations pngdrive_oper = {
 	.read		= pngdrive_read,
 	.create	= pngdrive_create,
 	.destroy	= pngdrive_destroy,
+	.rename	= pngdrive_rename,
+	.unlink	= pngdrive_unlink,
 };
 
 int main(int argc, char *argv[])
 {
-	startMem(1024*1024);
+//	startMem(1024*1024);
+	startMem(1024);
 	return fuse_main(argc, argv, &pngdrive_oper, NULL);
 }
