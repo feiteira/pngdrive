@@ -14,13 +14,14 @@
 
 unsigned char *mem;
 header *drive; 
+char *info;
 
 
 void startMem(int size){
 	mem = (unsigned char *) malloc(size);
 	printf("%d bytes alocated at: %p\n", size,mem);
 	drive = (header *)mem;
-	drive->version = 0;
+	drive->version = PNG_DRIVE_VERSION;
 	drive->totalspace = size;
 	drive->freespace = size - sizeof(header);
 	drive->filecount = 0;
@@ -156,17 +157,17 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else if (strcmp(path, pngdrive_path) == 0) {
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(pngdrive_str);
-	} else if (strcmp(path, "/folder") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
-		stbuf->st_nlink = 2;
+//	} else if (strcmp(path, pngdrive_path) == 0) {
+//		stbuf->st_mode = S_IFREG | 0444;
+//		stbuf->st_nlink = 1;
+//		stbuf->st_size = strlen(pngdrive_str);
+//	} else if (strcmp(path, "/folder") == 0) {
+//		stbuf->st_mode = S_IFDIR | 0755;
+//		stbuf->st_nlink = 2;
 	} else if (strcmp(path, proc_path) == 0) {
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(pngdrive_str);
+		stbuf->st_size = 1024;//strlen(pngdrive_str);-- It's a dynamic file, so never mind.
 	} 
 	else{
 		int cnt;
@@ -214,7 +215,7 @@ static int pngdrive_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 	filler(buf, proc_path + 1, NULL, 0);
-	filler(buf, pngdrive_path + 1, NULL, 0);
+	//filler(buf, pngdrive_path + 1, NULL, 0);
 
 	int cnt = 0;
 	printf("filecount:: %d\n", drive->filecount);
@@ -236,14 +237,16 @@ static int pngdrive_open(const char *path, struct fuse_file_info *fi)
 	if(ref != NULL)
 		return 0;	
 
+	// exception the procedure file, can also be opened
+	if (strcmp(path, proc_path) == 0)
+		return 0;
+
 	printf("opening\n");
-	if (strcmp(path, pngdrive_path) != 0)
-		return -ENOENT;
 
 	if ((fi->flags & 3) != O_RDONLY)
 		return -EACCES;
 
-	return 0;
+	return -ENOENT;
 }
 int pngdrive_create(const char *path, mode_t mode, struct fuse_file_info *info){
 	printf("creating: %s\n", path);
@@ -277,6 +280,14 @@ int pngdrive_write (const char *path, const char *data, size_t size, off_t offse
 	return size;
 }
 
+void updateInfo(){
+	sprintf(info,"PNG Drive version: %d\n", drive->version);
+	sprintf(info,"%sTotal size: %d bytes.\n", info,drive->totalspace);
+	sprintf(info,"%sAvailable space: %d bytes.\n", info,drive->freespace);
+	sprintf(info,"%sNumber of files:%d\n",info,drive->filecount);
+}
+
+
 static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset,
 		      struct fuse_file_info *fi)
 {
@@ -297,20 +308,30 @@ static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset
 			return rsize;
 		}
 	}
+	if (strcmp(path, proc_path) == 0) {
+		
+		updateInfo();
+		len = strlen(info);
+		if (offset < len) {
+			if (offset + rsize > len)
+				rsize = len - offset;
+				memcpy(buf,info + offset, rsize);// puts the contents of the file in "buf"
+		} else
+			rsize = 0;
+		return rsize;
+	}
 
+	//if(strcmp(path, pngdrive_path) != 0)
+	//	return -ENOENT;
+	//len = strlen(pngdrive_str);
+	//if (offset < len) {
+	//	if (offset + rsize > len)
+	//		rsize = len - offset;
+	//		memcpy(buf,pngdrive_str + offset, rsize);// puts the contents of the file in "buf"
+	//} else
+	//	rsize = 0;
 
-	if(strcmp(path, pngdrive_path) != 0)
-		return -ENOENT;
-
-	len = strlen(pngdrive_str);
-	if (offset < len) {
-		if (offset + rsize > len)
-			rsize = len - offset;
-			memcpy(buf,pngdrive_str + offset, rsize);// puts the contents of the file in "buf"
-	} else
-		rsize = 0;
-
-	return rsize;
+	return -ENOENT;
 }
 
 static void pngdrive_destroy(void *v){
@@ -364,6 +385,7 @@ static struct fuse_operations pngdrive_oper = {
 
 int main(int argc, char *argv[])
 {
+	info = (char *) malloc(4096);
 //	startMem(1024*1024);
 	startMem(1024);
 	return fuse_main(argc, argv, &pngdrive_oper, NULL);

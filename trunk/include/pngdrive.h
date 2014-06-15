@@ -9,12 +9,14 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
+#define PNG_DRIVE_VERSION 0x1
 
 #define FILENAME_MAX_LENGTH 64
 
-static const char *pngdrive_str = "Hello World!\n";
-static const char *pngdrive_path = "/h1llo";
-static const char *proc_path = "/proc";
+
+//static const char *pngdrive_str = "Hello World!\n";
+//static const char *pngdrive_path = "/h1llo";
+static const char *proc_path = "/pngdrive.info";
 
 typedef enum {DELETED,REGULAR_FILE, DIRECTORY} filetype;
 
