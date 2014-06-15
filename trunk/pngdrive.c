@@ -11,10 +11,18 @@
 
 
 #include "include/pngdrive.h"
+#include "include/pngbits.h"
 
+#define availableSpace (drive->freespace - headerSize())
 unsigned char *mem;
 header *drive; 
 char *info;
+
+int mask = DEFAULT_MASK;
+
+int headerSize(){
+		return sizeof(header) + drive->filecount * (sizeof(filereference));
+}
 
 
 void startMem(int size){
@@ -23,7 +31,7 @@ void startMem(int size){
 	drive = (header *)mem;
 	drive->version = PNG_DRIVE_VERSION;
 	drive->totalspace = size;
-	drive->freespace = size - sizeof(header);
+	drive->freespace = size;
 	drive->filecount = 0;
 	drive->files = (filereference*)(((char *)drive) + sizeof(header));// points immediately after the header
 }
@@ -56,71 +64,22 @@ filereference *getReferenceByPath(char *path){
 	return NULL;
 }
 
-void deleteFile(const char *path){
-	filereference *ref = getReferenceByPath((char *)path);	
-	if(ref == NULL){
-		printf("Warning: Trying to delete unexistent file: $%s\n", path);
-		return;
-	}
-
-	drive->filecount--;
-	// if the file to be deleted is already the last file in the list
-	if(strcmp(drive->files[drive->filecount].name,path) == 0){
-		// there is nothing else to be done, decrementing the filecount is enough
-		return;
-	} 
-
-	// the file is somewhere in the middle or begining of the filelist
-	int cnt;
-	bool copyahead = false;
-	for(cnt = 0; cnt < drive->filecount; cnt++){
-		ref = drive->files + cnt;
-		if(strcmp(path,ref->name) == 0){// found match
-			copyahead = true;
-		}
-		if(copyahead){
-			*ref = drive->files[cnt+1];
-		}
-	}
-}
-
-int addFile(char * name,int size, byte *content){
-	int size_in_disk = size + strlen(name) + 1;
-	if(size_in_disk > drive->freespace)
-		return -ENOSPC;
-
-	filereference newref;
-	newref.type = REGULAR_FILE; 
-	strncpy(&(newref.name[0]),name,FILENAME_MAX_LENGTH); 
-	newref.name[FILENAME_MAX_LENGTH] = (char)0;
-	newref.size = size;
-	
-	if(drive->filecount == 0){
-		drive->filecount = 1;
-		newref.data_offset = (drive->totalspace - 1 - size);
-		unsigned char *ptr = mem + newref.data_offset;
-		memcpy(ptr,content,size);
-		drive->files[0] = newref;
-		drive->freespace -= size;
-	}else{// address of the last (or first in memory) file reference
-		int last_address = drive->files[drive->filecount-1].data_offset; 
-		drive->filecount++;
-		newref.data_offset = (last_address - size);
-		unsigned char *ptr = mem + newref.data_offset;
-		memcpy(ptr,content,size);
-		drive->files[drive->filecount-1] = newref;
-		drive->freespace -= size;
-	}
-
-	return 0;	
-}
-
 void defrag(){
 	int cnt;
+	int last_offset = drive->totalspace;
 	// iterate over all files
 	for(cnt = 0; cnt < drive->filecount; cnt++){
-		//if the file has been deleted, then must defragment from here onwards
-		if(drive->files[cnt].type == DELETED){
+		filereference *curr = &(drive->files[cnt]);
+		if(curr->data_offset != (last_offset - curr->size)){
+			// original pointer, still contains the data
+			byte *prev = ((byte*) drive) + curr->data_offset;
+			// target pointer (updates the data_offset to the new address)
+			curr->data_offset = last_offset - curr->size;
+			byte *target = ((byte*) drive) + curr->data_offset;
+			memmove(target,prev,curr->size);
+		}
+		last_offset = curr->data_offset;
+		/*
 			// if it's already the last file, then no need to move anything.
 			if(cnt == drive->filecount - 1) {
 				drive->filecount--;
@@ -141,8 +100,70 @@ void defrag(){
 				drive->filecount--;
 			}
 		}
-		
+		*/
 	}
+}
+
+void deleteFile(const char *path){
+	filereference *ref = getReferenceByPath((char *)path);	
+	if(ref == NULL){
+		printf("Warning: Trying to delete unexistent file: $%s\n", path);
+		return;
+	}
+
+	drive->filecount--;
+	drive->freespace += ref->size;
+	// if the file to be deleted is already the last file in the list
+	if(strcmp(drive->files[drive->filecount].name,path) == 0){
+		// there is nothing else to be done, decrementing the filecount is enough
+		return;
+	} 
+
+	// the file is somewhere in the middle or begining of the filelist
+	int cnt;
+	bool copyahead = false;
+	for(cnt = 0; cnt < drive->filecount; cnt++){
+		ref = drive->files + cnt;
+		if(strcmp(path,ref->name) == 0){// found match
+			copyahead = true;
+		}
+		if(copyahead){
+			*ref = drive->files[cnt+1];
+		}
+	}
+
+	defrag();
+}
+
+int addFile(char * name,int size, byte *content){
+	int size_in_disk = size + sizeof(filereference);
+	if(size_in_disk > availableSpace)
+		return -ENOSPC;
+
+	filereference newref;
+	newref.type = REGULAR_FILE; 
+	strncpy(&(newref.name[0]),name,FILENAME_MAX_LENGTH); 
+	newref.name[FILENAME_MAX_LENGTH] = (char)0;
+	newref.size = size;
+	
+	if(drive->filecount == 0){
+		drive->filecount = 1;
+		newref.data_offset = (drive->totalspace - size);
+		unsigned char *ptr = mem + newref.data_offset;
+		memcpy(ptr,content,size);
+		drive->files[0] = newref;
+		drive->freespace -= size;
+	}else{// address of the last (or first in memory) file reference
+		int last_address = drive->files[drive->filecount-1].data_offset; 
+		drive->filecount++;
+		newref.data_offset = (last_address - size);
+		unsigned char *ptr = mem + newref.data_offset;
+		memcpy(ptr,content,size);
+		drive->files[drive->filecount-1] = newref;
+		drive->freespace -= size;
+	}
+
+	return 0;	
 }
 
 
@@ -283,7 +304,7 @@ int pngdrive_write (const char *path, const char *data, size_t size, off_t offse
 void updateInfo(){
 	sprintf(info,"PNG Drive version: %d\n", drive->version);
 	sprintf(info,"%sTotal size: %d bytes.\n", info,drive->totalspace);
-	sprintf(info,"%sAvailable space: %d bytes.\n", info,drive->freespace);
+	sprintf(info,"%sAvailable space: %d bytes (File System header is %d bytes).\n", info,availableSpace,headerSize());
 	sprintf(info,"%sNumber of files:%d\n",info,drive->filecount);
 }
 
@@ -300,7 +321,7 @@ static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset
 		if(strcmp(path,ref->name) == 0){
 			int datasize = ref->size;
 			if(offset < datasize){
-				rsize = datasize - offset;
+				//rsize = datasize - offset;
 				unsigned char * ptr = mem + (ref->data_offset + offset); 
 				memcpy(buf,ptr, rsize);// puts the contents of the file in "buf"
 			}else 
@@ -308,8 +329,8 @@ static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset
 			return rsize;
 		}
 	}
+	// for the info file
 	if (strcmp(path, proc_path) == 0) {
-		
 		updateInfo();
 		len = strlen(info);
 		if (offset < len) {
@@ -387,6 +408,6 @@ int main(int argc, char *argv[])
 {
 	info = (char *) malloc(4096);
 //	startMem(1024*1024);
-	startMem(1024);
+	startMem(50*1024*1024);
 	return fuse_main(argc, argv, &pngdrive_oper, NULL);
 }
