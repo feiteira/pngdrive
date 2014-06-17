@@ -221,13 +221,22 @@ FILE * readpng_or_exit(char *filename, png *pngdata){
 		exit(1);
 	}
 
-	long avgr,agvg,avgb,avga;
-	avgr,agvg,avgb,agva = 0;
+	long avgr,avgg,avgb,avga;
+	avgr,avgg,avgb,avga = 0;
 	int cntx,cnty;
 	for(cntx = 0; cntx< pngdata->width;cntx++)
 		for(cnty = 0; cnty< pngdata->height;cnty++)
 		{
+			avgr += rgba_pixel(cntx,cnty,pngdata) & 0xff;
+			avgg += (rgba_pixel(cntx,cnty,pngdata) >> 8) & 0xff;
+			avgb += (rgba_pixel(cntx,cnty,pngdata) >> 16) & 0xff;
 		}
+
+	long tot = pngdata->width * pngdata->height;
+
+	printf("R %ld\n", avgr/tot);
+	printf("G %ld\n", avgg/tot);
+	printf("B %ld\n", avgb/tot);
 
 	return f;
 }
