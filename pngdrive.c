@@ -24,13 +24,6 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-//	} else if (strcmp(path, pngdrive_path) == 0) {
-//		stbuf->st_mode = S_IFREG | 0444;
-//		stbuf->st_nlink = 1;
-//		stbuf->st_size = strlen(pngdrive_str);
-//	} else if (strcmp(path, "/folder") == 0) {
-//		stbuf->st_mode = S_IFDIR | 0755;
-//		stbuf->st_nlink = 2;
 	} else if (strcmp(path, proc_path) == 0) {
 		stbuf->st_mode = S_IFREG | 0444;
 		stbuf->st_nlink = 1;
@@ -82,7 +75,6 @@ static int pngdrive_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 	filler(buf, proc_path + 1, NULL, 0);
-	//filler(buf, pngdrive_path + 1, NULL, 0);
 
 	int cnt = 0;
 	printf("filecount:: %d\n", drive->filecount);
@@ -169,8 +161,7 @@ static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset
 	}
 	// for the info file
 	if (strcmp(path, proc_path) == 0) {
-		updateInfo();
-		len = strlen(info);
+		len = updateInfo();
 		if (offset < len) {
 			if (offset + rsize > len)
 				rsize = len - offset;
@@ -242,10 +233,28 @@ static struct fuse_operations pngdrive_oper = {
 	.unlink	= pngdrive_unlink,
 };
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
 	info = (char *) malloc(4096);
 //	startMem(1024*1024);
 	startMem(50*1024*1024);
-	return fuse_main(argc, argv, &pngdrive_oper, NULL);
+
+
+//ensures that fuse options "-f -o big_writes" are set by default
+	int fargc = argc+3;
+	const char *fargv[fargc];
+	
+	fargv[0] = argv[0];	
+	fargv[1] = "-f";	
+	fargv[2] = "-o";	
+	fargv[3] = "big_writes";	
+	int i;
+	for(i = 1; i < argc; i++)
+		fargv[i+3] = argv[i];	
+
+	for(i = 0; i < fargc; i++)
+		printf("\t%s\n",fargv[i]);
+
+	return fuse_main(fargc, (char **)fargv, &pngdrive_oper, NULL);
+
 }
