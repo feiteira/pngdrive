@@ -12,6 +12,7 @@
 #include "include/bitmasks.h"
 #include "include/filesystem.h"
 
+int mask = DEFAULT_MASK;
 
 int headerSize(){
 		return sizeof(header) + drive->filecount * (sizeof(filereference));
@@ -159,10 +160,11 @@ int addFile(char * name,int size, byte *content){
 	return 0;	
 }
 
-void updateInfo(){
+int updateInfo(){
 	sprintf(info,"PNG Drive version: %d\n", drive->version);
 	sprintf(info,"%sTotal size: %d bytes.\n", info,drive->totalspace);
 	sprintf(info,"%sAvailable space: %d bytes (File System header is %d bytes).\n", info,availableSpace,headerSize());
 	sprintf(info,"%sNumber of files:%d\n",info,drive->filecount);
+	return strlen(info);
 }
 

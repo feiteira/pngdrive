@@ -20,6 +20,15 @@ static const char *proc_path = "/pngdrive.info";
 typedef enum {DELETED,REGULAR_FILE, DIRECTORY} filetype;
 
 
+/*
+	The references of the files grow from the begining of memory
+	While the files are actually stored starting at the end of memory
+	If a file changes in size or is deleted then the system becomes fragmented
+
+	The center block (the space between the last reference and the first file data) is 
+	the largest available space and will contain all available space when the disk is
+	defragmented.
+*/
 typedef struct filereference{
 	filetype type;
 	int size;
@@ -38,28 +47,23 @@ typedef struct header{
 typedef unsigned char byte;
 
 #define last_file_reference drive->files[drive->filecount-1]
-
-
-
-
 #define availableSpace (drive->freespace - headerSize())
+
+// first declare them as external
+extern unsigned char *mem;
+extern header *drive; 
+extern char *info;
+
 unsigned char *mem;
 header *drive; 
 char *info;
-int mask = DEFAULT_MASK;
 
+// returns the size of the header in bytes, including the filereferences
 int headerSize();
+
+//brings up memory (formatted)
 void startMem(int size);
 
-/*
-	The references of the files grow from the begining of memory
-	While the files are actually stored starting at the end of memory
-	If a file changes in size or is deleted then the system becomes fragmented
-
-	The center block (the space between the last reference and the first file data) is 
-	the largest available space and will contain all available space when the disk is
-	defragmented.
-*/
 
 char * getDataPointerFromReference(int reference_id);
 
@@ -71,5 +75,5 @@ void deleteFile(const char *path);
 
 int addFile(char * name,int size, byte *content);
 
-void updateInfo();
+int updateInfo();
 #endif //PNGFILESYSTEM
