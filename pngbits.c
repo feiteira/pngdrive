@@ -6,9 +6,102 @@
 #include "include/pngbits.h"
 
 
-void setByte(unsigned char b, int mask, int pos){
+inline void setRGB(png_byte *ptr, float val)
+{
+	int v = (int)(val * 767);
+	if (v < 0) v = 0;
+	if (v > 767) v = 767;
+	int offset = v % 256;
+
+	if (v<256) {
+		ptr[0] = 0; ptr[1] = 0; ptr[2] = offset;
+	}
+	else if (v<512) {
+		ptr[0] = 0; ptr[1] = offset; ptr[2] = 255-offset;
+	}
+	else {
+		ptr[0] = offset; ptr[1] = 255-offset; ptr[2] = 0;
+	}
 }
 
+int writepng(char* filename, png_store *pngdata)
+{
+	int code = 0;
+	FILE *fp;
+	png_structp png_ptr;
+	png_infop info_ptr;
+	png_bytep row;
+	int width = pngdata->width;
+	int height = pngdata->height;
+//	float *buffer = pngdata->image_data;
+	
+	// Open file for writing (binary mode)
+	fp = fopen(filename, "wb");
+	if (fp == NULL) {
+		fprintf(stderr, "Could not open file %s for writing\n", filename);
+		code = 1;
+		exit(1);
+	}
+
+	// Initialize write structure
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (png_ptr == NULL) {
+		fprintf(stderr, "Could not allocate write struct\n");
+		code = 1;
+		exit(1);
+	}
+
+	// Initialize info structure
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		fprintf(stderr, "Could not allocate info struct\n");
+		code = 1;
+		exit(1);
+	}
+
+	// Setup Exception handling
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		fprintf(stderr, "Error during png creation\n");
+		code = 1;
+		exit(1);
+	}
+
+	png_init_io(png_ptr, fp);
+
+
+
+	// Write header (8 bit colour depth)
+	png_set_IHDR(png_ptr, info_ptr, width, height,
+			pngdata->bitdepth, pngdata->colortype, PNG_INTERLACE_NONE,
+			PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+
+	png_write_info(png_ptr, info_ptr);
+
+/*
+	// Allocate memory for one row (3 bytes per pixel - RGB)
+	row = (png_bytep) malloc(3 * width * sizeof(png_byte));
+
+	// Write image data
+	int x, y;
+	for (y=0 ; y<height ; y++) {
+		for (x=0 ; x<width ; x++) {
+			setRGB(&(row[x*3]), buffer[y*width + x]);
+		}
+		png_write_row(png_ptr, row);
+	}
+*/
+	png_write_image(png_ptr,pngdata->row_pointers);	
+	// End write
+	png_write_end(png_ptr, NULL);
+/*
+	finalise:
+	if (fp != NULL) fclose(fp);
+	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
+	if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+	if (row != NULL) free(row);
+*/
+	return code;
+}
 
 int readpng_init(FILE *infile, png_store *pngdata)
 {
@@ -65,8 +158,6 @@ int readpng_init(FILE *infile, png_store *pngdata)
 
     png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type,
       NULL, NULL, NULL);
-//    *pWidth = width;
-//    *pHeight = height;
 	pngdata->width = width;
 	pngdata->height = height;
 	pngdata->bitdepth = bit_depth;
@@ -90,7 +181,7 @@ unsigned char *readpng_get_image( png_store* pngdata)
     int color_type = pngdata->colortype;
     int bit_depth = pngdata->bitdepth;
     int height = pngdata->height;
-	double display_exponent = DISPLAY_EXPONENT;
+    double display_exponent = DISPLAY_EXPONENT;
     int *pChannels = &(pngdata->channels);
     unsigned long *pRowbytes = &(pngdata->rowbytes);
     unsigned char * image_data;
@@ -159,17 +250,18 @@ unsigned char *readpng_get_image( png_store* pngdata)
     /* and we're done!  (png_read_end() can be omitted if no processing of
      * post-IDAT text/time/etc. is desired) */
 
-    free(row_pointers);
-    row_pointers = NULL;
+//    free(row_pointers);
+//    row_pointers = NULL;
 
     png_read_end(png_ptr, NULL);
 
     pngdata->image_data = image_data;
+    pngdata->row_pointers =  row_pointers;
 
     return image_data;
 }
 
-inline void pushbit(char bitset,unsigned char *data, unsigned long pos){
+inline void push_bit_to_ram(char bitset,unsigned char *data, unsigned long pos){
 	unsigned char * ptr = &(data[pos/8]);	
 	int bpos = pos % 8;
 	int bit = 1 << bpos;
@@ -178,17 +270,43 @@ inline void pushbit(char bitset,unsigned char *data, unsigned long pos){
 		*ptr |= bit;
 	else//unsets the bit
 		*ptr &= (0xFF ^ bit);
-	
+}
 
+inline void pull_bit_from_ram(unsigned long pos, png_store * pngdata, unsigned int *masks){
+	unsigned char * data = pngdata->drivedata;
+	unsigned char * ptr = &(data[pos/8]);	
+	unsigned char bit = ((*ptr) >> (pos % 8)) & 1;
+	unsigned char pixelsize = pngdata->pixelsize;
+
+	int bits_per_pixel = numberOfSetBits(pngdata->mask);
+	unsigned long pixel_pos = pos / bits_per_pixel;// this will give the correct pixel
+
+	unsigned int *pix = (unsigned int *) &(pngdata->image_data[pixel_pos*pixelsize]);
+	
+//	*pix = 0xff;	
+	if(bit)
+		*pix |= masks[pos % bits_per_pixel];
+	else
+		*pix &= (0xFFFFFFFF ^ masks[pos % bits_per_pixel]);
+	
 }
 
 inline unsigned int rgba_pixel(int x, int y,png_store *pngdata){
 	long height = pngdata->height;
 	long width = pngdata->width;
 	unsigned char *data = (unsigned char *) pngdata->image_data;
-	unsigned int * res = (unsigned int*)&(data[(width*y+x)*pngdata->bytes_per_pix]);
+	unsigned int * res = (unsigned int*)&(data[(height*x+y)*pngdata->pixelsize]);
 
 	return *res;
+}
+
+void saveDriveData(png_store *pngdata){
+	unsigned long cnt = 0;
+	unsigned int * masks = bitmasks(pngdata->mask);	
+	for(cnt = 0; cnt < pngdata->drivesize * 8; cnt++){
+		pull_bit_from_ram(cnt, pngdata,masks);
+	}
+	free(masks);
 }
 
 void loadDriveData(png_store *pngdata){
@@ -211,12 +329,12 @@ void loadDriveData(png_store *pngdata){
 				pix = rgba_pixel(cntx,cnty,pngdata);
 				if(*maskptr & pix)
 					bitset = 1;
-				pushbit(bitset,drivedata,bitcounter);
+				push_bit_to_ram(bitset,drivedata,bitcounter);
 				bitcounter ++;
 			}
 		}
 
-	printf("load bytes: %ld\n",bitcounter/8);
+	printf("loaded %ld bytes.\n",bitcounter/8);
 	free(masks);
 }
 
@@ -256,10 +374,10 @@ FILE * readpng_or_exit(char *filename, png_store *pngdata){
 	}
 	switch(pngdata->colortype ){
 		case RGB:
-			pngdata->bytes_per_pix = 3;
+			pngdata->pixelsize = 3;
 		break;
 		case RGBA:
-			pngdata->bytes_per_pix = 4;
+			pngdata->pixelsize = 4;
 		break;
 	}
 	
@@ -293,8 +411,8 @@ FILE * readpng_or_exit(char *filename, png_store *pngdata){
 	printf("B %ld\n", avgb/tot);
 	printf("A %ld\n", avga/tot);
 */
-	loadDriveData(pngdata);
-	
+
+
 	return f;
 }
 
@@ -306,11 +424,12 @@ int getDriveSize(png_store *pngdata){
 	pngdata->drivesize= (pngdata->width*pngdata->height*bits_per_pix)/8;
 	return pngdata->drivesize;
 }
-
+/*
 int main(int argc, char *argv[]){
 	png_store pngdata;
 	pngdata.key=NULL;
-	pngdata.mask = 0x00010103;
+	pngdata.mask = DEFAULT_MASK;
+	pngdata.mask = 0x00010102;
 	
 	if(argc != 2){
 		perror("Use PNG filename in command line");
@@ -326,4 +445,16 @@ int main(int argc, char *argv[]){
 	
 	fclose(f);
 
-}
+
+	loadDriveData(&pngdata);
+
+	printf(pngdata.drivedata);
+	sprintf(pngdata.drivedata,"Test!! I hope this will work! \n");
+
+	saveDriveData(&pngdata);
+
+
+	
+	writepng("out.png",&pngdata);
+
+}*/
