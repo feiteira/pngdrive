@@ -1,4 +1,4 @@
-#define DEFAULT_MASK 0x0010103
+#define DEFAULT_MASK 0x0010102
 
 // returns number a bits set on an integer
 int numberOfSetBits(int i);

@@ -12,12 +12,14 @@ typedef struct png_store{
 	long height;
 	int bitdepth;
 	int colortype;
-	int bytes_per_pix;
+	int pixelsize;//in bytes
 	png_structp png_ptr;
 	png_infop info_ptr;
 	unsigned char *image_data;
 	int channels; 
 	unsigned long rowbytes;
+	png_bytepp  row_pointers ;
+
 	// data
 	unsigned char *drivedata;
 	int drivesize;
@@ -27,3 +29,14 @@ typedef struct png_store{
 } png_store;
 
 #define DISPLAY_EXPONENT 2.2f
+
+
+
+FILE * readpng_or_exit(char *filename, png_store *pngdata);
+void loadDriveData(png_store *pngdata);
+void saveDriveData(png_store *pngdata);
+int writepng(char* filename, png_store *pngdata);
+
+
+
+
