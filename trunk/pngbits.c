@@ -90,10 +90,9 @@ unsigned char *readpng_get_image( png* pngdata)
     int bit_depth = pngdata->bitdepth;
     int height = pngdata->height;
 	double display_exponent = DISPLAY_EXPONENT;
-    int *pChannels; 
-    unsigned long *pRowbytes;
+    int *pChannels = &(pngdata->channels);
+    unsigned long *pRowbytes = &(pngdata->rowbytes);
     unsigned char * image_data;
-
     /* setjmp() must be called in every function that calls a PNG-reading
      * libpng function */
 
@@ -165,21 +164,17 @@ unsigned char *readpng_get_image( png* pngdata)
     png_read_end(png_ptr, NULL);
 
     pngdata->image_data = image_data;
-    pngdata->pChannels = pChannels;
-    pngdata->pRowbytes = pRowbytes;
 
     return image_data;
 }
 
-unsigned long rgba_pixel(int x, int y,png *pngdata){
+unsigned int rgba_pixel(int x, int y,png *pngdata){
 	long height = pngdata->height;
 	long width = pngdata->width;
+	unsigned char *data = (unsigned char *) pngdata->image_data;
+	unsigned int * res = (unsigned int*)&(data[(width*y+x)*pngdata->bytes_per_pix]);
 
-	unsigned long *data = (unsigned long *) pngdata->image_data;
-	
-	
-	return data[width*x+y];
-	
+	return *res;
 }
 
 FILE * readpng_or_exit(char *filename, png *pngdata){
@@ -210,9 +205,17 @@ FILE * readpng_or_exit(char *filename, png *pngdata){
 		fprintf(stderr,"Error: bit depth must be 8, is %d.\n",pngdata->bitdepth);
 		exit(1);
 	}
-	if(pngdata->colortype != 6){
-		fprintf(stderr,"Error: color type must be 6 (RGBA), is %d.\n",pngdata->colortype);
+	if((pngdata->colortype != RGB) && (pngdata->colortype != RGBA)){
+		fprintf(stderr,"Error: color type must be 2 (RGB) or 6 (RGBA), instead is %d.\n",pngdata->colortype);
 		exit(1);
+	}
+	switch(pngdata->colortype ){
+		case RGB:
+			pngdata->bytes_per_pix = 3;
+		break;
+		case RGBA:
+			pngdata->bytes_per_pix = 4;
+		break;
 	}
 	
         unsigned char *imgdata = readpng_get_image(pngdata);
@@ -221,22 +224,29 @@ FILE * readpng_or_exit(char *filename, png *pngdata){
 		exit(1);
 	}
 
-	long avgr,avgg,avgb,avga;
-	avgr,avgg,avgb,avga = 0;
+	unsigned int avgr,avgg,avgb,avga;
+	avgr=avgg=avgb=avga = 0;
 	int cntx,cnty;
 	for(cntx = 0; cntx< pngdata->width;cntx++)
 		for(cnty = 0; cnty< pngdata->height;cnty++)
 		{
-			avgr += rgba_pixel(cntx,cnty,pngdata) & 0xff;
-			avgg += (rgba_pixel(cntx,cnty,pngdata) >> 8) & 0xff;
-			avgb += (rgba_pixel(cntx,cnty,pngdata) >> 16) & 0xff;
+			unsigned int pix = rgba_pixel(cntx,cnty,pngdata);
+			avgr += (unsigned int)(pix & 0xff);
+			avgg += (unsigned int)((pix >> 8) & 0xff);
+			avgb += (unsigned int)((pix >> 16) & 0xff);
+			avga += (unsigned int)((pix >> 24) & 0xff);
+//			printf("%08x\n",pix);
+//			printf("RGBA: %02x %02x %02x %02x\n", (pix & 0xff),((pix >> 8) & 0xff),( (pix >> 16) & 0xff), ((pix >> 24) & 0xff));
+//			printf("RGBA: %3d,%3d,%3d,%3d\n", (pix & 0xff),((pix >> 8) & 0xff),( (pix >> 16) & 0xff), ((pix >> 24) & 0xff));
 		}
 
 	long tot = pngdata->width * pngdata->height;
 
+
 	printf("R %ld\n", avgr/tot);
 	printf("G %ld\n", avgg/tot);
 	printf("B %ld\n", avgb/tot);
+	printf("A %ld\n", avga/tot);
 
 	return f;
 }
