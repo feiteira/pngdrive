@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <png.h>
+#include "include/bitmasks.h"
 #include "include/pngbits.h"
 
 
@@ -9,7 +10,7 @@ void setByte(unsigned char b, int mask, int pos){
 }
 
 
-int readpng_init(FILE *infile, png *pngdata)
+int readpng_init(FILE *infile, png_store *pngdata)
 {
     unsigned char sig[8];
     long width,height;
@@ -79,7 +80,7 @@ int readpng_init(FILE *infile, png *pngdata)
 }
 
 
-unsigned char *readpng_get_image( png* pngdata)
+unsigned char *readpng_get_image( png_store* pngdata)
 {
     double  gamma;
     png_uint_32  i, rowbytes;
@@ -168,7 +169,20 @@ unsigned char *readpng_get_image( png* pngdata)
     return image_data;
 }
 
-unsigned int rgba_pixel(int x, int y,png *pngdata){
+inline void pushbit(char bitset,unsigned char *data, unsigned long pos){
+	unsigned char * ptr = &(data[pos/8]);	
+	int bpos = pos % 8;
+	int bit = 1 << bpos;
+
+	if(bitset)//sets the bit
+		*ptr |= bit;
+	else//unsets the bit
+		*ptr &= (0xFF ^ bit);
+	
+
+}
+
+inline unsigned int rgba_pixel(int x, int y,png_store *pngdata){
 	long height = pngdata->height;
 	long width = pngdata->width;
 	unsigned char *data = (unsigned char *) pngdata->image_data;
@@ -177,7 +191,38 @@ unsigned int rgba_pixel(int x, int y,png *pngdata){
 	return *res;
 }
 
-FILE * readpng_or_exit(char *filename, png *pngdata){
+void loadDriveData(png_store *pngdata){
+	int mask =  pngdata->mask;
+	int size = getDriveSize(pngdata);
+	pngdata->drivedata = (unsigned char *) malloc(size);
+	unsigned char *drivedata = pngdata->drivedata;
+	unsigned long bitcount = 0;
+	unsigned int * masks = bitmasks(mask);	
+	
+	int cntx,cnty;
+	unsigned long bitcounter = 0;
+	unsigned int *maskptr;
+	char bitset;
+	unsigned int pix;
+	for(cntx = 0; cntx< pngdata->width;cntx++)
+		for(cnty = 0; cnty< pngdata->height;cnty++){
+			for(maskptr = masks; *maskptr != 0; maskptr++){
+				bitset = 0;
+				pix = rgba_pixel(cntx,cnty,pngdata);
+				if(*maskptr & pix)
+					bitset = 1;
+				pushbit(bitset,drivedata,bitcounter);
+				bitcounter ++;
+			}
+		}
+
+	printf("load bytes: %ld\n",bitcounter/8);
+	free(masks);
+}
+
+
+
+FILE * readpng_or_exit(char *filename, png_store *pngdata){
 	FILE *f = fopen(filename,"r");
 
 	int ret = readpng_init(f,pngdata);
@@ -223,7 +268,7 @@ FILE * readpng_or_exit(char *filename, png *pngdata){
 		perror("Invalid image.\n");
 		exit(1);
 	}
-
+/*
 	unsigned int avgr,avgg,avgb,avga;
 	avgr=avgg=avgb=avga = 0;
 	int cntx,cnty;
@@ -247,14 +292,25 @@ FILE * readpng_or_exit(char *filename, png *pngdata){
 	printf("G %ld\n", avgg/tot);
 	printf("B %ld\n", avgb/tot);
 	printf("A %ld\n", avga/tot);
-
+*/
+	loadDriveData(pngdata);
+	
 	return f;
 }
 
 
 
+// drive size in bytes
+int getDriveSize(png_store *pngdata){
+	int bits_per_pix = numberOfSetBits(pngdata->mask);	
+	pngdata->drivesize= (pngdata->width*pngdata->height*bits_per_pix)/8;
+	return pngdata->drivesize;
+}
+
 int main(int argc, char *argv[]){
-	png pngdata;
+	png_store pngdata;
+	pngdata.key=NULL;
+	pngdata.mask = 0x00010103;
 	
 	if(argc != 2){
 		perror("Use PNG filename in command line");
@@ -265,6 +321,8 @@ int main(int argc, char *argv[]){
 	printf("Opening file: %s\n", filename);
 
 	FILE *f = readpng_or_exit(filename,&pngdata);	
+
+	printf("This image can store %d bytes (%.2f MBs).\n",getDriveSize(&pngdata),getDriveSize(&pngdata)/(1024*1024.0f));
 	
 	fclose(f);
 

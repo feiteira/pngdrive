@@ -1,3 +1,6 @@
+Usage: 
+	pngdrive <png image file> [-key=<key>] [-mask=<mask>]
+
 
 How to create an image that can be used for mouting?
 	To create the PNG (RGBA) from JPG:
