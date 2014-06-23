@@ -10,3 +10,7 @@
 #define FILENAME_MAX_LENGTH 64
 
 typedef unsigned char byte;
+
+#define DRIVE_SUFIX ".drive"
+
+#define FORMAT_OPTION = "-format"

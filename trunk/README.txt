@@ -1,5 +1,5 @@
 Usage: 
-	pngdrive <png image file> [-key=<key>] [-mask=<mask>]
+	pngdrive [-key=<key>] [-mask=<mask>] [-format] <png image file> 
 
 
 How to create an image that can be used for mouting?

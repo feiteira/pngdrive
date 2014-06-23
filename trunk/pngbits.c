@@ -1,28 +1,10 @@
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <malloc.h>
 #include <png.h>
 #include "include/bitmasks.h"
 #include "include/pngbits.h"
 
-
-inline void setRGB(png_byte *ptr, float val)
-{
-	int v = (int)(val * 767);
-	if (v < 0) v = 0;
-	if (v > 767) v = 767;
-	int offset = v % 256;
-
-	if (v<256) {
-		ptr[0] = 0; ptr[1] = 0; ptr[2] = offset;
-	}
-	else if (v<512) {
-		ptr[0] = 0; ptr[1] = offset; ptr[2] = 255-offset;
-	}
-	else {
-		ptr[0] = offset; ptr[1] = 255-offset; ptr[2] = 0;
-	}
-}
 
 int writepng(char* filename, png_store *pngdata)
 {
@@ -77,19 +59,6 @@ int writepng(char* filename, png_store *pngdata)
 
 	png_write_info(png_ptr, info_ptr);
 
-/*
-	// Allocate memory for one row (3 bytes per pixel - RGB)
-	row = (png_bytep) malloc(3 * width * sizeof(png_byte));
-
-	// Write image data
-	int x, y;
-	for (y=0 ; y<height ; y++) {
-		for (x=0 ; x<width ; x++) {
-			setRGB(&(row[x*3]), buffer[y*width + x]);
-		}
-		png_write_row(png_ptr, row);
-	}
-*/
 	png_write_image(png_ptr,pngdata->row_pointers);	
 	// End write
 	png_write_end(png_ptr, NULL);
@@ -109,7 +78,6 @@ int readpng_init(FILE *infile, png_store *pngdata)
     long width,height;
     int  bit_depth, color_type;
  
-
 
     /* first do a quick check that the file really is a PNG image; could
      * have used slightly more general png_sig_cmp() function instead */
@@ -300,7 +268,7 @@ inline unsigned int rgba_pixel(int x, int y,png_store *pngdata){
 	return *res;
 }
 
-void saveDriveData(png_store *pngdata){
+void savePNGDriveData(png_store *pngdata){
 	unsigned long cnt = 0;
 	unsigned int * masks = bitmasks(pngdata->mask);	
 	for(cnt = 0; cnt < pngdata->drivesize * 8; cnt++){
@@ -309,9 +277,9 @@ void saveDriveData(png_store *pngdata){
 	free(masks);
 }
 
-void loadDriveData(png_store *pngdata){
+void loadPNGDriveData(png_store *pngdata){
 	int mask =  pngdata->mask;
-	int size = getDriveSize(pngdata);
+	int size = getPNGDriveSize(pngdata);
 	pngdata->drivedata = (unsigned char *) malloc(size);
 	unsigned char *drivedata = pngdata->drivedata;
 	unsigned long bitcount = 0;
@@ -419,7 +387,7 @@ FILE * readpng_or_exit(char *filename, png_store *pngdata){
 
 
 // drive size in bytes
-int getDriveSize(png_store *pngdata){
+int getPNGDriveSize(png_store *pngdata){
 	int bits_per_pix = numberOfSetBits(pngdata->mask);	
 	pngdata->drivesize= (pngdata->width*pngdata->height*bits_per_pix)/8;
 	return pngdata->drivesize;

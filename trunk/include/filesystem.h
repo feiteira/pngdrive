@@ -7,14 +7,9 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
-//#include "include/pngdrive.h"
-//#include "include/pngbits.h"
-//#include "include/bitmasks.h"
 #ifndef PNGFILESYSTEM
 #define PNGFILESYSTEM
 
-//static const char *pngdrive_str = "Hello World!\n";
-//static const char *pngdrive_path = "/h1llo";
 static const char *proc_path = "/pngdrive.info";
 
 typedef enum {DELETED,REGULAR_FILE, DIRECTORY} filetype;
@@ -64,6 +59,9 @@ int headerSize();
 //brings up memory (formatted)
 void startMem(int size);
 
+bool validateMem(int size, unsigned char * data);
+
+void formatMem(int size, unsigned char * data);
 
 char * getDataPointerFromReference(int reference_id);
 

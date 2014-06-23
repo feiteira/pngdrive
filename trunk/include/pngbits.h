@@ -33,8 +33,9 @@ typedef struct png_store{
 
 
 FILE * readpng_or_exit(char *filename, png_store *pngdata);
-void loadDriveData(png_store *pngdata);
-void saveDriveData(png_store *pngdata);
+void loadPNGDriveData(png_store *pngdata);
+void savePNGDriveData(png_store *pngdata);
+int getPNGDriveSize(png_store *pngdata);
 int writepng(char* filename, png_store *pngdata);
 
 
