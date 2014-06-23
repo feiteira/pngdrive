@@ -18,16 +18,31 @@ int headerSize(){
 		return sizeof(header) + drive->filecount * (sizeof(filereference));
 }
 
+void loadMem(int size, unsigned char * data){
+	mem = data;	
+	drive = (header *)mem;
+}
 
-void startMem(int size){
-	mem = (unsigned char *) malloc(size);
-	printf("%d bytes alocated at: %p\n", size,mem);
+bool validateMem(int size, unsigned char * data){
+	header * h = (header *)data;
+	return (h->totalspace == size);
+	
+}
+
+void formatMem(int size, unsigned char * data){
+	mem = data;	
 	drive = (header *)mem;
 	drive->version = PNG_DRIVE_VERSION;
 	drive->totalspace = size;
 	drive->freespace = size;
 	drive->filecount = 0;
 	drive->files = (filereference*)(((char *)drive) + sizeof(header));// points immediately after the header
+}
+
+void startMem(int size){
+	unsigned char *m = (unsigned char *) malloc(size);
+	printf("%d bytes alocated at: %p\n", size,mem);
+	loadMem(size,m);
 }
 
 /*

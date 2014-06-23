@@ -1,10 +1,25 @@
-all: tools
-	gcc objs/pngbits.o objs/bitmasks.o objs/filesystem.o -Wall -g pngdrive.c `pkg-config fuse --cflags --libs` -o pngdrive
+LIBS=`pkg-config fuse --cflags --libs` -lpng 
+SOURCES=pngbits.c filesystem.c bitmasks.c 
+OBJECTS=$(SOURCES:.c=.o)
+#CFLAGS=-g -Wall
+CFLAGS=-g
+EXE=pngdrive
 
-tools:
-	gcc pngbits.c -g -c -o objs/pngbits.o 
-	gcc filesystem.c -g -c -o objs/filesystem.o 
-	gcc bitmasks.c -g -c -o objs/bitmasks.o
 
-clean:
-	rm -f objs/*.o pngdrive	
+all: objects $(EXECUTABLE)
+	gcc ${OBJECTS} pngdrive.c ${CFLAGS} ${LIBS} -o ${EXE}
+	rm ${OBJECTS}
+
+$(EXECUTABLE): $(OBJECTS) 
+	$(CC) $(CFLAGS) $(OBJECTS) -o $@
+
+objects: ${OBJECTS}
+
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean: clean-objects
+	rm -f ${EXE}
+	
+clean-objects:
+	rm -f ${OBJECTS}
