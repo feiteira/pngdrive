@@ -32,7 +32,7 @@ char * getFileNameFromPath(char * path){
 	return ret;
 }
 
-void prepareDrive(char * filepath,png_store * pngdata){
+void prepareDrive(char * filepath,png_store * pngdata, bool format){
 	pngdata->key=NULL;
 	pngdata->mask = DEFAULT_MASK;
 	pngdata->mask = 0x00010102;
@@ -44,6 +44,11 @@ void prepareDrive(char * filepath,png_store * pngdata){
 
 	printf("This image can store %d bytes (%.2f MBs).\n",size,size/(1024*1024.0f));
 	fclose(f);
+
+
+	if(format){
+		formatMem(size, pngdata->drivedata);
+	}
 
 	bool valid = validateMem(size, pngdata->drivedata);
 
@@ -57,25 +62,31 @@ void prepareDrive(char * filepath,png_store * pngdata){
 	}
 }
 
-bool formatOption(int argc, char *argv[]){
+bool checkFormatOption(int argc, char *argv[]){
 	int cnt = 0;
 	for(; cnt < argc-1;cnt++)// goes only up to argc - 1 because the last argument is always the filename
-		if(strcmp(argv[cnt],FORMAT_OPTION
+		if(strcmp(argv[cnt],FORMAT_OPTION) == 0){
+			return true;
+		}
+	return false;
 }
 
 int main(int argc, char *argv[])
 {
+	//-------- exit if invalid number of arguments
 	if(argc < 2){
 		help();
 		exit(1);
-	}	
+	}
+
 	info = (char *) malloc(4096);
 	png_store pngdata;
 //	startMem(1024*1024);
 //	startMem(50*1024*1024);
 
+	//------- load file into memory
 	struct stat st = {0};
-	char *filepath = argv[1];
+	char *filepath = argv[argc-1];
 	char *filename = getFileNameFromPath(filepath);
 	char *drivename = (char*) malloc(strlen(filename)+strlen(DRIVE_SUFIX)+1);
 	sprintf(drivename,"%s%s",filename,DRIVE_SUFIX);
@@ -88,13 +99,15 @@ int main(int argc, char *argv[])
 	    mkdir(drivename, 0755);
 	}else{
 		fprintf(stderr, "Error, folder %s alreay exists\n",drivename);
+		help();
+		exit(1);
 	}
 
-
-	prepareDrive(filepath,&pngdata);
+	bool format = checkFormatOption(argc, argv);
+	prepareDrive(filepath,&pngdata,format);
 		
 
-//ensures that fuse options "-f -o big_writes" are set by default
+	//------ fuse options "-f -o big_writes" are set by default
 	int fargc = 5;
 	const char *fargv[fargc];
 	fargv[0] = argv[0];	
