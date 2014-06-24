@@ -59,6 +59,8 @@ int headerSize();
 //brings up memory (formatted)
 void startMem(int size);
 
+void loadMem(unsigned char * data);
+
 bool validateMem(int size, unsigned char * data);
 
 void formatMem(int size, unsigned char * data);

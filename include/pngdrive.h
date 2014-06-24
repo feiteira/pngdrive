@@ -13,4 +13,8 @@ typedef unsigned char byte;
 
 #define DRIVE_SUFIX ".drive"
 
-#define FORMAT_OPTION "-format
+#define FORMAT_OPTION "-format" 
+
+
+void on_drive_exit();
+

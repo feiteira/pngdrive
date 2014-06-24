@@ -18,9 +18,14 @@ int headerSize(){
 		return sizeof(header) + drive->filecount * (sizeof(filereference));
 }
 
-void loadMem(int size, unsigned char * data){
+void loadMem(unsigned char * data){
 	mem = data;	
 	drive = (header *)mem;
+	drive->files = (filereference*)(((char *)drive) + sizeof(header));// points immediately after the header
+	printf("Loaded PNG drivo to memory:\n");
+	printf("\tVersion:%d\n", drive->version);
+	printf("\tTotal space:%d\n", drive->totalspace);
+	printf("\tFile count:%d\n", drive->filecount);
 }
 
 bool validateMem(int size, unsigned char * data){
@@ -42,7 +47,7 @@ void formatMem(int size, unsigned char * data){
 void startMem(int size){
 	unsigned char *m = (unsigned char *) malloc(size);
 	printf("%d bytes alocated at: %p\n", size,mem);
-	loadMem(size,m);
+	formatMem(size,m);
 }
 
 /*
