@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #include "include/pngdrive.h"
 #include "include/pngbits.h"
@@ -17,6 +18,11 @@
 #include "include/filesystem.h"
 
 #include "fuse_functions.c"
+
+png_store pngdata;
+char *drivename;
+char *filepath;
+
 
 void help(){
 	printf("This should be the help\n");
@@ -44,11 +50,12 @@ void prepareDrive(char * filepath,png_store * pngdata, bool format){
 
 	printf("This image can store %d bytes (%.2f MBs).\n",size,size/(1024*1024.0f));
 	fclose(f);
+	loadPNGDriveData(pngdata);// the malloc on pngdata->drivedata is done here
 
-
-	if(format){
+	if(format)
 		formatMem(size, pngdata->drivedata);
-	}
+	else
+		loadMem(pngdata->drivedata);
 
 	bool valid = validateMem(size, pngdata->drivedata);
 
@@ -71,6 +78,18 @@ bool checkFormatOption(int argc, char *argv[]){
 	return false;
 }
 
+struct sigaction old_action;
+
+void on_drive_exit() {
+	printf("System interrupted, saving changes into image... exiting when finished...\n");
+	savePNGDriveData(&pngdata);
+	writepng(filepath,&pngdata);
+//	printf("Removing %s\n",drivename);
+	rmdir(drivename);
+}
+
+
+
 int main(int argc, char *argv[])
 {
 	//-------- exit if invalid number of arguments
@@ -80,19 +99,21 @@ int main(int argc, char *argv[])
 	}
 
 	info = (char *) malloc(4096);
-	png_store pngdata;
 //	startMem(1024*1024);
 //	startMem(50*1024*1024);
 
 	//------- load file into memory
 	struct stat st = {0};
-	char *filepath = argv[argc-1];
+	filepath = argv[argc-1];
 	char *filename = getFileNameFromPath(filepath);
-	char *drivename = (char*) malloc(strlen(filename)+strlen(DRIVE_SUFIX)+1);
+	drivename = (char*) malloc(strlen(filename)+strlen(DRIVE_SUFIX)+1);
 	sprintf(drivename,"%s%s",filename,DRIVE_SUFIX);
 
 	printf("File path is %s\n", filepath);
 	printf("File name is %s\n", filename);
+
+	bool format = checkFormatOption(argc, argv);
+	prepareDrive(filepath,&pngdata,format);
 
 	if (stat(drivename, &st) == -1) {
           printf("Creating folder %s...\n",drivename);	
@@ -103,8 +124,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	bool format = checkFormatOption(argc, argv);
-	prepareDrive(filepath,&pngdata,format);
 		
 
 	//------ fuse options "-f -o big_writes" are set by default
@@ -119,6 +138,7 @@ int main(int argc, char *argv[])
 
 	for(i = 0; i < fargc; i++)
 		printf("\t%s\n",fargv[i]);
+
 
 	return fuse_main(fargc, (char **)fargv, &pngdrive_oper, NULL);
 }
