@@ -53,6 +53,7 @@ unsigned char *mem;
 header *drive; 
 char *info;
 
+
 // returns the size of the header in bytes, including the filereferences
 int headerSize();
 

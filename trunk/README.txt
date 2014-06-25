@@ -1,8 +1,12 @@
 Usage: 
-	pngdrive [-key=<key>] [-mask=<mask>] [-format] <png image file> 
+	pngdrive [-debug] [-key=<key>] [-mask=<mask>] [-format] <png image file> 
 
+	- debug: enables verbose/debug mode
+	- key: uses '<key>' to encrypt the data
+	- mask: uses '<mask>' to determine which bits have data (e.g. -mask=0xFF0000 will mean that only the Red channel will contain data [for RGB images])
+	- format: creates an empty filesystem using current values for 'key' and 'mask'.
 
-How to create an image that can be used for mouting?
+How to create an image that can be used for mounting?
 	To create the PNG (RGBA) from JPG:
 	 # convert sample.jpg -depth 8 -transparent none sample.png
 
@@ -11,3 +15,5 @@ How to create an image that can be used for mouting?
 
 Dependencies:
 	aptitude install libpng-dev
+	aptitude install libssl-doc libssl-dev
+

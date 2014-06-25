@@ -30,6 +30,11 @@ typedef struct png_store{
 
 #define DISPLAY_EXPONENT 2.2f
 
+extern unsigned int mask;
+extern char* key;
+
+unsigned int mask;
+char* key;
 
 
 FILE * readpng_or_exit(char *filename, png_store *pngdata);
@@ -37,7 +42,5 @@ void loadPNGDriveData(png_store *pngdata);
 void savePNGDriveData(png_store *pngdata);
 int getPNGDriveSize(png_store *pngdata);
 int writepng(char* filename, png_store *pngdata);
-
-
 
 
