@@ -2,7 +2,7 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
 {
         int res = 0;
 
-        printf("getattr: %s \n", path);
+        DEBUG printf("getattr: %s \n", path);
 
         memset(stbuf, 0, sizeof(struct stat));
         if (strcmp(path, "/") == 0) {
@@ -17,17 +17,17 @@ static int pngdrive_getattr(const char *path, struct stat *stbuf)
                 int cnt;
                 // for each file in drive
                 for(cnt = 0; cnt < drive->filecount; cnt++){
-                        printf("\t[%d]\t[%s]\n",cnt,drive->files[cnt].name);
+                        DEBUG printf("\t[%d]\t[%s]\n",cnt,drive->files[cnt].name);
                         filereference *ref = drive->files + cnt;
                         if(strcmp(path,ref->name) == 0){// found match
-                                printf("found match, type: %d\n", ref->type);
+                                DEBUG printf("found match, type: %d\n", ref->type);
                                 stbuf->st_uid = getuid();
                                 stbuf->st_gid = getgid();
                                 if(ref->type == REGULAR_FILE){
                                         stbuf->st_mode = S_IFREG | 0644;
                                         stbuf->st_nlink = 1;
                                         stbuf->st_size = ref->size;
-                                        printf("size: %d\n", (int)stbuf->st_size);
+                                        DEBUG printf("size: %d\n", (int)stbuf->st_size);
                                         return res;
                                 }else if (ref->type == DIRECTORY){
                                         stbuf->st_mode = S_IFDIR | 0755;
@@ -49,7 +49,7 @@ static int pngdrive_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                          off_t offset, struct fuse_file_info *fi)
 {
 
-        printf("readdir: %s\n", path);
+        DEBUG printf("readdir: %s\n", path);
         (void) offset;
         (void) fi;
 
@@ -61,9 +61,9 @@ static int pngdrive_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         filler(buf, proc_path + 1, NULL, 0);
 
         int cnt = 0;
-        printf("filecount:: %d\n", drive->filecount);
+        DEBUG printf("filecount:: %d\n", drive->filecount);
         for(cnt = 0; cnt < drive->filecount; cnt++){
-                printf("\t[%d]\t%s\n",cnt,drive->files[cnt].name);
+                DEBUG printf("\t[%d]\t%s\n",cnt,drive->files[cnt].name);
                 char *nameptr = (char *)(drive->files[cnt].name);
                 filler(buf, nameptr+1, NULL, 0);
         }
@@ -92,13 +92,13 @@ static int pngdrive_open(const char *path, struct fuse_file_info *fi)
         return -ENOENT;
 }
 int pngdrive_create(const char *path, mode_t mode, struct fuse_file_info *info){
-        printf("creating: %s\n", path);
+        DEBUG printf("creating: %s\n", path);
         addFile((char *)path,0,NULL);
         return 0;
 }
 
 int pngdrive_write (const char *path, const char *data, size_t size, off_t offset, struct fuse_file_info *info){
-        printf("writing %d bytes to %s\n", (int)size,path);
+        DEBUG printf("writing %d bytes to %s\n", (int)size,path);
         filereference *ref = getReferenceByPath((char*)path);
         if(ref == NULL){
                 return -ENOENT;
@@ -126,7 +126,7 @@ int pngdrive_write (const char *path, const char *data, size_t size, off_t offse
 static int pngdrive_read(const char *path, char *buf, size_t rsize, off_t offset,
                       struct fuse_file_info *fi)
 {
-        printf("reading: %s\n", path);
+        DEBUG printf("reading: %s\n", path);
         size_t len;
         (void) fi;
         
@@ -173,7 +173,7 @@ static void pngdrive_destroy(void *v){
 }
 
 static int pngdrive_rename (const char *srcpath, const char *destpath){
-        printf("renaming %s to %s\n",srcpath,destpath);
+        DEBUG printf("renaming %s to %s\n",srcpath,destpath);
         filereference *dest = getReferenceByPath((char *)destpath);
         filereference *src = getReferenceByPath((char *)srcpath);
 
@@ -200,7 +200,7 @@ static int pngdrive_unlink (const char *path){
                 return -ENOENT; // no such file or directory
         }
 
-        printf("Unlinking file:%s\n",path);
+        DEBUG printf("Unlinking file:%s\n",path);
         deleteFile((char *) path);
         return 0;
 }

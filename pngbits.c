@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <png.h>
+#include <openssl/md5.h>
+#include "include/pngdrive.h"
 #include "include/bitmasks.h"
 #include "include/pngbits.h"
 
@@ -268,9 +270,47 @@ inline unsigned int rgba_pixel(int x, int y,png_store *pngdata){
 	return *res;
 }
 
+void compute_md5(char *str, unsigned char digest[16]) {
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, str, strlen(str));
+    MD5_Final(digest, &ctx);
+}
+
+void md5toString(unsigned char digest[16], char * str){
+	int cnt  = 0;
+	char *iter = str;
+	for(; cnt < 16; cnt ++, iter+=2)
+		sprintf(iter,"%02x",digest[cnt]);
+}
+
+void xor_drive(png_store *pngdata){
+	if(pngdata->key == NULL)
+		return;
+
+	unsigned char digest[16];
+	char * tmp = malloc(strlen(pngdata->key)+8);
+	char hexstr[33];
+	
+	int cnt = 0;
+	for(; cnt < pngdata->drivesize; cnt++){
+		if(cnt %16 == 0){
+			sprintf(tmp,"%s%08x",pngdata->key,cnt/16);
+			compute_md5(tmp,digest);
+			md5toString(digest,hexstr);
+//			printf("%s => %s\n",tmp,hexstr);
+		}
+		pngdata->drivedata[cnt] ^= digest[cnt%16];
+	}
+	free(tmp);
+}
+
 void savePNGDriveData(png_store *pngdata){
 	unsigned long cnt = 0;
 	unsigned int * masks = bitmasks(pngdata->mask);	
+
+	xor_drive(pngdata);// encrypt when saving
+
 	for(cnt = 0; cnt < pngdata->drivesize * 8; cnt++){
 		pull_bit_from_ram(cnt, pngdata,masks);
 	}
@@ -302,6 +342,8 @@ void loadPNGDriveData(png_store *pngdata){
 			}
 		}
 
+	xor_drive(pngdata); // decript after loading
+
 	printf("loaded %ld bytes.\n",bitcounter/8);
 	free(masks);
 }
@@ -310,6 +352,12 @@ void loadPNGDriveData(png_store *pngdata){
 
 FILE * readpng_or_exit(char *filename, png_store *pngdata){
 	FILE *f = fopen(filename,"r");
+
+	if(f == NULL){
+		DEBUG fprintf(stderr,"Error, could not open file: %s\n", filename);
+		exit(1);
+	}
+	
 
 	int ret = readpng_init(f,pngdata);
 	if(ret != 0){

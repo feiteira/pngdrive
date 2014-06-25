@@ -9,10 +9,10 @@
 
 #include "include/pngdrive.h"
 #include "include/pngbits.h"
-#include "include/bitmasks.h"
+//#include "include/bitmasks.h"
 #include "include/filesystem.h"
 
-int mask = DEFAULT_MASK;
+//int mask = DEFAULT_MASK;
 
 int headerSize(){
 		return sizeof(header) + drive->filecount * (sizeof(filereference));
@@ -93,28 +93,6 @@ void defrag(){
 			memmove(target,prev,curr->size);
 		}
 		last_offset = curr->data_offset;
-		/*
-			// if it's already the last file, then no need to move anything.
-			if(cnt == drive->filecount - 1) {
-				drive->filecount--;
-				return;
-			}else{
-			//must move memory from here onwards
-				// first move the references
-				filereference *target_pointer = &(drive->files[cnt]);
-				filereference *source_pointer  = &(drive->files[cnt+1]);
-				int size = sizeof(filereference) * (drive->filecount - cnt);
-				memmove(target_pointer,source_pointer,size);
-
-				// then move the data - the last pointer is the one closeset 
-				filereference *last_pointer = &(drive->files[drive->filecount-1]);
-
-				
-				// decrement the file counter because file has been deleted
-				drive->filecount--;
-			}
-		}
-		*/
 	}
 }
 

@@ -1,17 +1,21 @@
-LIBS=`pkg-config fuse --cflags --libs` -lpng 
+LIBS=`pkg-config fuse --cflags --libs` -lpng -lcrypto -lssl
 SOURCES=pngbits.c filesystem.c bitmasks.c 
 OBJECTS=$(SOURCES:.c=.o)
 #CFLAGS=-g -Wall
 CFLAGS=-g
 EXE=pngdrive
+CC=gcc
 
 
-all: objects $(EXECUTABLE)
-	gcc ${OBJECTS} pngdrive.c ${CFLAGS} ${LIBS} -o ${EXE}
+all: objects $(EXE)
+#	gcc ${OBJECTS} pngdrive.c ${CFLAGS} ${LIBS} -o ${EXE}
 	rm ${OBJECTS}
 
-$(EXECUTABLE): $(OBJECTS) 
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@
+install:
+	cp ${EXE} /usr/bin
+
+$(EXE): $(OBJECTS) 
+	$(CC) $(OBJECTS) pngdrive.c ${CFLAGS} ${LIBS}  -o $@
 
 objects: ${OBJECTS}
 
