@@ -22,7 +22,8 @@ typedef unsigned char byte;
 #define KEY_OPTION "-key=" 
 #define MASK_OPTION "-mask=" 
 
-#define DEFAULT_MASK 0x0010102
+//ABGR
+#define DEFAULT_MASK 0x00020101
 
 
 #define DEBUG if(debug_pngdrive)
