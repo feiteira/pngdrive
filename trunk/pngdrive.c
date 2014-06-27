@@ -32,6 +32,8 @@ void help(){
         - debug: enables verbose/debug mode\n\
         - key: uses '<key>' to encrypt the data\n\
         - mask: uses '<mask>' to determine which bits have data (e.g. -mask=0xFF0000 will mean that only the Red channel will contain data [for RGB images])\n\
+               - For RGB images use: 0xRRGGBB00 (two trailing zeros)\n\
+               - For RGBA images use: 0xRRGGBBAA\n\
         - format: creates an empty filesystem using current values for 'key' and 'mask'.\n\
 \n\
 How to create an image that can be used for mounting?\n\
@@ -137,6 +139,7 @@ int main(int argc, char *argv[])
 	if( checkOption(argc, argv,MASK_OPTION) != NULL){
 		char *s_mask =  checkOption(argc, argv,MASK_OPTION) ;
 		sscanf(s_mask,"%x",&(pngdata.mask));
+		
 		reverse_bytes(&(pngdata.mask));
 		printf("Received mask: %s (%x or %d)\n",s_mask,pngdata.mask,pngdata.mask);
 		if(pngdata.mask == 0){

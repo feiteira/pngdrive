@@ -4,10 +4,12 @@ Usage:
 	- debug: enables verbose/debug mode
 	- key: uses '<key>' to encrypt the data
 	- mask: uses '<mask>' to determine which bits have data (e.g. -mask=0xFF0000 will mean that only the Red channel will contain data [for RGB images])
+		- For RGB images use: 0xRRGGBB00
+		- For RGBA images use: 0xRRGGBBAA
 	- format: creates an empty filesystem using current values for 'key' and 'mask'.
 
 How to create an image that can be used for mounting?
-	To create the PNG (ARGB) from JPG:
+	To create the PNG (RGBA) from JPG:
 	 # convert sample.jpg -depth 8 -transparent none sample.png
 
 	Note: Requires package ImageMagick
