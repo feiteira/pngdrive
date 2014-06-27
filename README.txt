@@ -7,7 +7,7 @@ Usage:
 	- format: creates an empty filesystem using current values for 'key' and 'mask'.
 
 How to create an image that can be used for mounting?
-	To create the PNG (RGBA) from JPG:
+	To create the PNG (ARGB) from JPG:
 	 # convert sample.jpg -depth 8 -transparent none sample.png
 
 	Note: Requires package ImageMagick

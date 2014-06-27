@@ -84,7 +84,10 @@ int readpng_init(FILE *infile, png_store *pngdata)
     /* first do a quick check that the file really is a PNG image; could
      * have used slightly more general png_sig_cmp() function instead */
 
-    fread(sig, 1, 8, infile);
+    size_t fr = fread(sig, 1, 8, infile);
+    if(fr != 1*8)
+        return 1;   /* bad signature */
+
     if (!png_check_sig(sig, 8))
         return 1;   /* bad signature */
 
