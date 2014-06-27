@@ -2,7 +2,7 @@ LIBS=`pkg-config fuse --cflags --libs` -lpng -lcrypto -lssl
 SOURCES=pngbits.c filesystem.c bitmasks.c 
 OBJECTS=$(SOURCES:.c=.o)
 #CFLAGS=-g -Wall
-CFLAGS=-g
+CFLAGS=-g -O3
 EXE=pngdrive
 CC=gcc
 

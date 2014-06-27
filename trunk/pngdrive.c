@@ -115,6 +115,16 @@ void on_drive_exit() {
 	rmdir(drivename);
 }
 
+
+inline void reverse_bytes(unsigned int *v){
+	unsigned int num = *v;
+	unsigned int swapped = ((num>>24)&0xff) | // move byte 3 to byte 0
+                    ((num<<8)&0xff0000) | // move byte 1 to byte 2
+                    ((num>>8)&0xff00) | // move byte 2 to byte 1
+                    ((num<<24)&0xff000000); // byte 0 to byte 3`
+	*v = swapped;
+}
+
 int main(int argc, char *argv[])
 {
 	DEBUG_OFF;	
@@ -127,6 +137,7 @@ int main(int argc, char *argv[])
 	if( checkOption(argc, argv,MASK_OPTION) != NULL){
 		char *s_mask =  checkOption(argc, argv,MASK_OPTION) ;
 		sscanf(s_mask,"%x",&(pngdata.mask));
+		reverse_bytes(&(pngdata.mask));
 		printf("Received mask: %s (%x or %d)\n",s_mask,pngdata.mask,pngdata.mask);
 		if(pngdata.mask == 0){
 			printf("Received invalid mask %x (%d), cannot proceed.\n",pngdata.mask,pngdata.mask);
