@@ -95,6 +95,7 @@ bool checkFormatOption(int argc, char *argv[]){
 		}
 	return false;
 }
+
 // returns either NULL if there was no match
 // or empty string if there was an exact match
 // or the value in case of partial match (e.g. for option "-test=" and argv "-test=123" it will return "123"
