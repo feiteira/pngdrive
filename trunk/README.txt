@@ -16,6 +16,5 @@ How to create an image that can be used for mounting?
 
 
 Dependencies:
-	aptitude install libpng-dev
-	aptitude install libssl-doc libssl-dev
+	aptitude install libpng-dev libssl-doc libssl-dev
 
